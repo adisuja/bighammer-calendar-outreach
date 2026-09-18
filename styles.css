@@ -1,0 +1,4 @@
+/* styles.css — calendar site overrides. Core shell in core.css, Gmail chrome in gmail.css, Google Calendar chrome in gcal.css. */
+:root{--brand:#039be5}
+.brand-mark.gcal-mark{background:#fff;border:1px solid #e3e1dc}
+body.no-preview .g-inv{display:none}

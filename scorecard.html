@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BigHammer.ai · Cold calendar outreach · Benchmark scorecard</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="core.css?v=2">
+<link rel="stylesheet" href="scorecard.css?v=2">
+</head>
+<body>
+<div class="sc-page">
+  <a class="sc-back" href="index.html">← Back to the preview</a>
+  <h1>Cold calendar outreach · benchmark scorecard</h1>
+  <p class="sc-lead">Goal: an accepted invite that turns into a live attendee, without a spam complaint. Titles are scored with the doc's own five-criterion rubric (recomputed here, not copied); bodies are scored against the playbook's structural rules and webinar benchmarks. Headline numbers come from the table; projections are judgment.</p>
+  <div id="sc"></div>
+</div>
+<script src="data.js?v=2"></script>
+<script>
+window.RUBRIC = (function () {
+  const S = new Proxy({}, { get: (_, k) => window.SC[k] });
+  const titleOf = (cell) => S.fill(cell.title || (cell.invite && cell.invite.title) || "");
+  const bodyOf = (cell) => S.fill(cell.description || cell.body || "");
+  const number = /\d|\$|%/;
+  const spamTitle = /\bfree\b|%|\$|!|[A-Z]{4,}/;
+  return {
+    intro: "Each row is one event cell (title + description) from the preview; the paired cold email and the Day-4 follow-up are scored as separate rows. Title criteria follow the doc's rubric (truncation survival 30%, specificity 25%, self-interest 20%, decline resistance 15%, low spam signal 10%); body criteria come from the playbook's Part 6 and Part 7 rules.",
+    criteria: [
+      { id: "trunc", label: "Truncation survival", weight: 3, how: "Does the hook survive at 24 characters (mobile day/week view)? Title fits in 24 scores 5; the number or noun lands inside the first 24 scores 4; payload arrives by 32 scores 3; opens with a verb phrase that spends the budget scores 2; longer than 40 with the payload at the end scores 1.",
+        score: (cell) => { const t = titleOf(cell); const n = t.length; const head = t.slice(0, 24); if (n <= 24) return { s: 5, why: `${n} chars, fits` }; if (number.test(head) || /Databricks|clusters|Photon|teardown|leaks/i.test(head)) return { s: 4, why: `payload inside first 24 ("${head}…")` }; if (n <= 32) return { s: 3, why: `${n} chars` }; return { s: n <= 40 ? 2 : 1, why: `${n} chars, hook truncated` }; } },
+      { id: "spec", label: "Specificity", weight: 2, how: "A number or a named mechanism (idle clusters, Photon, failed runs, teardown) scores 5; a named person scores 4; a category word only scores 2.",
+        score: (cell) => { const t = titleOf(cell); if (number.test(t) || /idle|Photon|failed|teardown|leaks/i.test(t)) return { s: 5, why: "number or mechanism" }; if (/Srinath/.test(t)) return { s: 4, why: "named host" }; return { s: 2, why: "category only" }; } },
+      { id: "self", label: "Self-interest framing", weight: 2, how: "Reads as the recipient's problem ('your bill', 'idle clusters') scores 5; neutral agenda scores 4; vendor-first scores 2.",
+        score: (cell) => { const t = titleOf(cell); if (/your|leaks|idle|failed|overpay/i.test(t)) return { s: 5, why: "recipient's problem" }; if (/BigHammer/i.test(t)) return { s: 2, why: "vendor first" }; return { s: 4, why: "neutral agenda" }; } },
+      { id: "spam", label: "Low spam signal (title)", weight: 2, how: "No percentage, dollar figure, 'free', caps or exclamation in a cold title scores 5 (the playbook bans all of these for cold sends); one offence scores 3; two scores 1. Registrant invites are allowed a number (scores 4).",
+        score: (cell, it) => { const t = titleOf(cell); const reg = (cell.kinds || []).includes("registrant"); const hits = (t.match(/\bfree\b/gi) || []).length + (t.match(/%|\$/g) || []).length + (t.match(/!/g) || []).length + (/[A-Z]{4,}/.test(t) ? 1 : 0); if (hits === 0) return { s: 5, why: "clean" }; return { s: reg && hits === 1 ? 4 : hits === 1 ? 3 : 1, why: `${hits} broadcast tell${hits > 1 ? "s" : ""}` }; } },
+      { id: "len", label: "Body length", weight: 2, how: "Cold invite bodies: 40–90 words scores 5 (C1 71, C2 63, C3 41 words); 91–140 scores 3; over 140 scores 2 (the registrant variations are 250+ words, which the playbook treats as a different job). The paired email at 85 words scores 5.",
+        score: (cell) => { const w = S.words(bodyOf(cell)); return { s: w <= 90 ? 5 : w <= 140 ? 3 : 2, why: `${w} words` }; } },
+      { id: "link", label: "Link placement", weight: 2, how: "Join link sits below the pitch, never in the first line (a first-line link from an unknown sender reads as phishing) scores 5; link in the first line scores 2; no link scores 3 (follow-up offering a reply instead).",
+        score: (cell) => { const b = bodyOf(cell); const first = b.split("\n")[0]; if (!S.URL_RE.test(b) && !/\{\{join_url\}\}|\{\{webinar_url\}\}/.test(cell.description || cell.body || "")) return { s: 3, why: "no link (reply ask)" }; if (S.URL_RE.test(first) || /^Save your seat/i.test(first)) return { s: 2, why: "link in first line" }; return { s: 5, why: "link below the pitch" }; } },
+      { id: "exit", label: "Consequence-free exit", weight: 3, how: "An explicit 'decline and you won't hear from us again' line scores 5 (it converts a would-be complaint into a decline, which is the metric that keeps the programme alive); 'accept it or bin it' scores 4; a notifications opt-out line scores 3; none scores 1.",
+        score: (cell) => { const b = bodyOf(cell); if (/decline and/i.test(b)) return { s: 5, why: "explicit decline line" }; if (/bin it|no need to attend/i.test(b)) return { s: 4, why: "accept it or bin it" }; if (/No further updates/i.test(b)) return { s: 3, why: "notifications line only" }; return { s: 1, why: "no exit" }; } },
+      { id: "human", label: "Named human, no pitch", weight: 2, how: "Names Srinath Reddy and says 'no product pitch' scores 5; names the host only scores 4; 'About Us' paragraph or product claims (Migrate agent, lock-in) scores 2.",
+        score: (cell) => { const b = bodyOf(cell); if (/About Us|Migrate agent|lock-in/i.test(b)) return { s: 2, why: "About Us / product claims" }; if (/Srinath/.test(b) && /no (product )?pitch/i.test(b)) return { s: 5, why: "named host, no pitch" }; if (/Srinath/.test(b)) return { s: 4, why: "named host" }; return { s: 3, why: "no host named" }; } }
+    ],
+    items: (D) => D.campaigns.flatMap(c => c.rows.flatMap(r => r.cells.filter(cell => cell.type === "event" || cell.kinds.includes("followup") || (cell.kinds.includes("invite_email") && !cell.kinds.includes("registrant"))).map(cell => ({ cell, label: cell.type === "event" ? `Event · "${S.fill(cell.title)}"` : cell.kinds.includes("followup") ? "Day-4 follow-up email" : "Paired email (carries the .ics)", group: c.title.split(" (")[0], meta: r.label.split(" · ")[0] })))),
+    benchmarks: [
+      { metric: "Google Calendar 'Add invitations to my calendar'", value: "Options: From everyone / Only if the sender is known / When I respond to the invitation in email. Accounts created after June 2024 default to 'Only if the sender is known'", source: "Google Calendar Help", url: "https://support.google.com/calendar/answer/13159188?hl=en&co=GENIE.Platform%3DDesktop", note: "So most cold invites are read in the inbox, not on the calendar: the email is the asset." },
+      { metric: "Outlook behaviour", value: "Classic Outlook auto-adds invites as tentative by default; Outlook on the web has the same 'Only if the sender is known' style setting; new Outlook cannot fully block auto-added invites", source: "Microsoft Q&A threads (no official docs page found)", url: "https://learn.microsoft.com/en-us/answers/questions/4614141/unwanted-meeting-invitations-automatically-added-t" },
+      { metric: "Gmail invitation subject", value: "\"Invitation: <title> @ <date> (<guest email>)\" (observed format; no official Google page states it)", source: "AddCal 2026", url: "https://addcal.co/blog/how-to-send-a-calendar-invite-in-gmail" },
+      { metric: "Accept / decline / complaint rates for cold invites", value: "Not published anywhere we could find; the playbook's own watch levels: complaint hard stop 0.3%, accept under 2% means targeting, attendance under 40% of accepted means reminders", source: "BigHammer playbook (internal); Google 0.3% rule", url: "https://support.google.com/a/answer/14229414?hl=en" },
+      { metric: "Mobile title truncation", value: "No measured public source; the doc's planning numbers (12–18 chars month view, 20–26 day/week, 28–36 desktop week) are the working assumption and the 3-day view in the preview reproduces them", source: "BigHammer title analysis (internal)", url: "index.html" },
+      { metric: "Webinar live attendance", value: "41.6% median (12.4K webinars); 44–50% good (Contrast); 57% registration-to-attendee incl. on-demand (ON24)", source: "Digital Applied 2026; Contrast 2026; ON24 2025", url: "https://www.digitalapplied.com/blog/webinar-statistics-2026-attendance-conversion-data" },
+      { metric: "Reminder lift", value: "Three reminders at −1 day / −1 hour / −5 minutes: +27% live attendance", source: "Contrast 2026", url: "https://www.getcontrast.io/learn/webinar-statistics" },
+      { metric: "Session time viability", value: "12:00 PM ET = 9 AM PT (marginal), 5 PM UK (marginal), 6 PM CET (poor), 9:30 PM IST (not viable cold)", source: "BigHammer playbook Part 4 (recomputed for the 12 PM ET slot)", url: "https://webinar.bighammerai.com/" }
+    ],
+    projections: [
+      { label: "Inbox placement of the paired email", value: "70–85% if the seed test passes", basis: "Dedicated subdomain, SPF/DKIM/DMARC, named mailbox, 20–40 per mailbox per day as the playbook requires." },
+      { label: "Accept rate", value: "2–5% of delivered", basis: "Playbook's own 'below 2% means targeting' floor; no public benchmark exists for this tactic." },
+      { label: "Decline rate", value: "10–25% of delivered", basis: "The copy is engineered for declines instead of complaints; a high decline rate is a working programme." },
+      { label: "Complaint rate", value: "0.1–0.3%", basis: "Kill switch at 0.3%; the explicit exit line and a US-only list are the two controls." },
+      { label: "Live attendance of accepted", value: "40–55%", basis: "Median 41.6%; an accepted calendar hold plus the reminder emails push toward the top quartile." }
+    ],
+    notes: [
+      "Run the eight-to-ten-account seed test before spending anything; the Google default for post-June-2024 accounts means most invites arrive as email only.",
+      "Registrant Variations 1 to 3 open with the link and carry an 'About Us' paragraph plus a 'Notifications' line; they score low on the cold criteria by design. Use them for registrants only.",
+      "The Day-4 follow-up had no copy in the doc; the two-sentence draft in the preview needs approval.",
+      "Post-June-2024 Gmail accounts will not auto-add the event, so the 3-day-view truncation matters only for people who accept; the email subject (65 chars) is what everyone sees first.",
+      "No join link exists yet. The playbook asks for a dial-in that works without an app install; the sample falls back to the registration page."
+    ]
+  };
+})();
+</script>
+<script src="scorecard.js?v=2"></script>
+</body>
+</html>
